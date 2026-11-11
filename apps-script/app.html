@@ -63,13 +63,13 @@
     root.innerHTML =
       '<header class="topbar">' +
         '<button class="menu-btn" data-act="menu">☰ ' + u('menu') + '</button>' +
-        '<div class="brand"><b>ClearMechanic</b><span>' + u('title') + '</span></div>' +
+        '<div class="brand"><i class="cm-mark" aria-hidden="true"></i><b>ClearMechanic</b><i class="divider"></i><span>' + u('title') + '</span></div>' +
         '<div class="spacer"></div>' +
         '<div class="ver">' + u('version') + ' ' + esc(G.meta.version) + ' · ' + u('updated') + ' ' + esc(G.meta.updated) + '</div>' +
         '<div class="langs" role="group" aria-label="Language">' + langBtns + '</div>' +
       '</header>' +
       '<div class="layout">' +
-        '<nav class="sidebar" id="sidebar">' + nav + '</nav>' +
+        '<nav class="sidebar" id="sidebar"><i class="cm-wordmark" role="img" aria-label="ClearMechanic · One Solution"></i>' + nav + '</nav>' +
         '<main class="main"><div class="content fade" id="content">' + renderSection(section(state.page)) + '</div></main>' +
       '</div>';
     afterRender();
@@ -210,7 +210,7 @@
   }
 
   /* ---------------- diagrama de secuencia ---------------- */
-  var COLORS = { dms: '#1f3864', cm: '#3f7d20', user: '#7a8499' };
+  var COLORS = { dms: '#63799B', cm: '#0069FF', user: '#ACB7C0' }; // GrayBlue · CM1 · Neutral5
   function sequenceBlock(b) {
     var id = 'seq' + (++seqId);
     var P = b.participants, n = P.length, W = 760, pad = n === 2 ? 110 : 95;
@@ -222,9 +222,9 @@
     }).join('') + '</defs>';
     P.forEach(function (p) {
       var x = xs[p], name = strip(G.ui.actors[p]);
-      svg += '<line x1="' + x + '" y1="44" x2="' + x + '" y2="' + (H - 6) + '" stroke="#c9d2df" stroke-dasharray="4 4"/>';
-      svg += '<rect x="' + (x - 82) + '" y="8" width="164" height="34" rx="8" fill="' + COLORS[p] + '"/>';
-      svg += '<text x="' + x + '" y="30" text-anchor="middle" fill="#fff" font-size="13" font-weight="700" font-family="Segoe UI, Arial, sans-serif">' + esc(name) + '</text>';
+      svg += '<line x1="' + x + '" y1="44" x2="' + x + '" y2="' + (H - 6) + '" stroke="#C9CDD3" stroke-dasharray="4 4"/>';
+      svg += '<rect x="' + (x - 82) + '" y="8" width="164" height="34" rx="17" fill="' + COLORS[p] + '"/>';
+      svg += '<text x="' + x + '" y="30" text-anchor="middle" fill="#fff" font-size="13" font-weight="700" font-family="Inter, Segoe UI, Arial, sans-serif">' + esc(name) + '</text>';
     });
     b.steps.forEach(function (s, i) {
       var y = top + 16 + i * rowH + 22;
@@ -239,8 +239,8 @@
         '<rect class="hit" x="0" y="' + (y - 28) + '" width="' + W + '" height="' + rowH + '" fill="transparent"/>' +
         '<line x1="' + lx1 + '" y1="' + y + '" x2="' + lx2 + '" y2="' + y + '" stroke="' + col + '" stroke-width="2"' + (s.res ? ' stroke-dasharray="6 4"' : '') + ' marker-end="url(#' + id + '-a-' + s.from + ')"/>' +
         '<circle cx="' + x1 + '" cy="' + y + '" r="11" fill="' + col + '"/>' +
-        '<text x="' + x1 + '" y="' + (y + 4) + '" text-anchor="middle" fill="#fff" font-size="11" font-weight="700" font-family="Segoe UI, Arial, sans-serif">' + (i + 1) + '</text>' +
-        '<text x="' + mid + '" y="' + (y - 8) + '" text-anchor="middle" fill="#1d2433" font-size="12.5" font-weight="600" font-family="' + (s.labelT ? 'Segoe UI, Arial, sans-serif' : 'Consolas, ui-monospace, monospace') + '">' + esc(label) + '</text>' +
+        '<text x="' + x1 + '" y="' + (y + 4) + '" text-anchor="middle" fill="#fff" font-size="11" font-weight="700" font-family="Inter, Segoe UI, Arial, sans-serif">' + (i + 1) + '</text>' +
+        '<text x="' + mid + '" y="' + (y - 8) + '" text-anchor="middle" fill="#26292B" font-size="12.5" font-weight="600" font-family="' + (s.labelT ? 'Inter, Segoe UI, Arial, sans-serif' : 'Roboto Mono, Consolas, ui-monospace, monospace') + '">' + esc(label) + '</text>' +
         '</g>';
     });
     svg += '</svg>';

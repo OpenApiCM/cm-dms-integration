@@ -44,9 +44,8 @@ if (missingTr) console.warn(`⚠ ${missingTr} textos sin traducción manual (se 
 // 3) Armar el HTML
 const meta = guides.es.meta;
 const indexable = String(process.env.ALLOW_INDEXING).toLowerCase() === 'true';
-const favicon = "data:image/svg+xml," + encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#1f3864"/>' +
-  '<text x="32" y="43" font-family="Arial,sans-serif" font-size="30" font-weight="700" fill="#fff" text-anchor="middle">CM</text></svg>');
+// Favicon = isotipo CM (mismo data URI que brand.html)
+const favicon = (read('brand.html').match(/url\((data:image\/png;base64,[^)]+)\)/) || [])[1] || '';
 const head = [
   '<meta name="viewport" content="width=device-width, initial-scale=1">',
   '<title>ClearMechanic · DMS Integration Guide</title>',
@@ -59,8 +58,7 @@ const head = [
 
 const html = read('index.html')
   .replace('<meta charset="utf-8">', () => '<meta charset="utf-8">\n    ' + head)
-  .replace("<?!= include('styles'); ?>", () => read('styles.html'))
-  .replace("<?!= include('app'); ?>", () => read('app.html'))
+  .replace(/<\?!= include\('([\w-]+)'\); \?>/g, (_, name) => read(name + '.html'))
   .replace('<?!= guideJson ?>', () => safe(guides.es) + ';\n      window.__GUIDES__ = ' + safe(guides))
   .replace('<?!= bootJson ?>', () => safe({ lang: 'es', explicitLang: false, page: '' }));
 if (/<\?/.test(html)) throw new Error('Quedó un scriptlet de Apps Script sin reemplazar');

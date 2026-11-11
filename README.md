@@ -17,7 +17,8 @@ apps-script/
   Content.gs        ← ALL the content (texts T('es','en','pt'), endpoints, flows, checklist)
   Code.gs           ← Apps Script server + shared logic (markup, translation)
   index.html        ← HTML shell
-  styles.html       ← styles
+  brand.html        ← ClearMechanic logo (embedded CM isotype)
+  styles.html       ← styles (ClearMechanic design system tokens)
   app.html          ← client: navigation, diagrams, explorer, checklist
   appsscript.json   ← Apps Script manifest
 tools/build.js      ← generates the static site in dist/ (validates content)
@@ -102,7 +103,7 @@ If the guide should only be visible to DMSs in onboarding:
 
 ## Google Apps Script (optional, for Google Sites)
 
-1. In script.google.com create the files `Code.gs`, `Content.gs`, `index.html`, `styles.html`, `app.html` with the contents of `apps-script/` and paste in `appsscript.json` (Project Settings → show manifest).
+1. In script.google.com create the files `Code.gs`, `Content.gs`, `index.html`, `brand.html`, `styles.html`, `app.html` with the contents of `apps-script/` and paste in `appsscript.json` (Project Settings → show manifest).
 2. **Deploy → New deployment → Web app** · Execute as: *Me* · Access: *Anyone*.
 3. To update: **Manage deployments → ✏️ → New version** (don't create a new deployment, or the URL changes).
 4. In Google Sites: Insert → Embed → `/exec` URL (`?lang=pt&page=orders` optional).
