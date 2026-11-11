@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <?!= include('styles'); ?>
+  </head>
+  <body>
+    <div id="app" class="app">
+      <div class="boot">Loading…</div>
+    </div>
+    <script>
+      window.__GUIDE__ = <?!= guideJson ?>;
+      window.__BOOT__ = <?!= bootJson ?>;
+    </script>
+    <?!= include('app'); ?>
+  </body>
+</html>

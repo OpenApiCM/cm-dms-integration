@@ -1,0 +1,459 @@
+<script>
+(function () {
+  'use strict';
+
+  var BOOT = window.__BOOT__ || { lang: 'es', page: '' };
+  var cache = {};                    // guías ya cargadas por idioma
+  var G = window.__GUIDE__;          // guía activa (ya traducida)
+  cache[G.lang] = G;
+  if (window.__GUIDES__) Object.keys(window.__GUIDES__).forEach(function (k) { cache[k] = window.__GUIDES__[k]; }); // preview local
+
+  // Sitio estático (Cloudflare Pages): URLs compartibles  #/<idioma>/<sección>  ej. #/pt/orders
+  var STATIC = !!window.__GUIDES__ && !(window.google && window.google.script);
+  function parseHash() {
+    var h = (location.hash || '').replace(/^#\/?/, '');
+    if (!h) return {};
+    var parts = h.indexOf(':') >= 0 ? h.split(':').reverse() : h.split('/'); // acepta también #seccion:idioma
+    if (parts.length === 1) return G.langs.indexOf(parts[0]) >= 0 ? { lang: parts[0] } : { page: parts[0] };
+    return { lang: parts[0], page: parts[1] };
+  }
+  if (STATIC) {
+    var H = parseHash();
+    if (H.lang && cache[H.lang]) { G = cache[H.lang]; BOOT.explicitLang = true; }
+    if (H.page) BOOT.page = H.page;
+  }
+  function syncHash(push) {
+    if (!STATIC) return;
+    var h = '#/' + G.lang + '/' + state.page;
+    if (location.hash === h) return;
+    try { history[push ? 'pushState' : 'replaceState'](null, '', h); } catch (e) { /* noop */ }
+  }
+
+  var state = { page: BOOT.page || 'overview', explorer: { q: '', dir: 'all', integ: 'all' } };
+  var EP = {};
+  var root = document.getElementById('app');
+  var LS_LANG = 'cm-dms-guide-lang', LS_CHECK = 'cm-dms-guide-checklist';
+
+  /* ---------------- utilidades ---------------- */
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function strip(h) { var d = document.createElement('div'); d.innerHTML = h || ''; return d.textContent || ''; }
+  function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
+  function u(k) { return G.ui[k] || k; }
+  function indexEndpoints() { EP = {}; G.endpoints.forEach(function (e) { EP[e.id] = e; }); }
+  function docUrl(e) {
+    var L = G.meta.links;
+    var base = e.dir === 'cm2dms' ? L.dmsApi : L.productApi;
+    return e.tag && e.op ? base + '#/' + encodeURIComponent(e.tag) + '/' + e.op : base;
+  }
+  function section(id) { for (var i = 0; i < G.sections.length; i++) if (G.sections[i].id === id) return G.sections[i]; return null; }
+
+  /* ---------------- shell ---------------- */
+  function render() {
+    indexEndpoints();
+    if (!section(state.page)) state.page = 'overview';
+    document.documentElement.lang = G.lang === 'pt' ? 'pt-BR' : G.lang;
+    var langBtns = G.langs.map(function (l) {
+      return '<button data-lang="' + l + '" class="' + (l === G.lang ? 'on' : '') + '">' + l.toUpperCase() + '</button>';
+    }).join('');
+    var nav = G.sections.map(function (s) {
+      var sep = (s.id === 'errors' || s.id === 'reference') ? '<div class="nav-sep"></div>' : '';
+      return sep + '<button class="nav-item' + (s.id === state.page ? ' on' : '') + '" data-goto="' + s.id + '"><span class="ic">' + s.icon + '</span><span>' + s.title + '</span></button>';
+    }).join('');
+
+    root.innerHTML =
+      '<header class="topbar">' +
+        '<button class="menu-btn" data-act="menu">☰ ' + u('menu') + '</button>' +
+        '<div class="brand"><b>ClearMechanic</b><span>' + u('title') + '</span></div>' +
+        '<div class="spacer"></div>' +
+        '<div class="ver">' + u('version') + ' ' + esc(G.meta.version) + ' · ' + u('updated') + ' ' + esc(G.meta.updated) + '</div>' +
+        '<div class="langs" role="group" aria-label="Language">' + langBtns + '</div>' +
+      '</header>' +
+      '<div class="layout">' +
+        '<nav class="sidebar" id="sidebar">' + nav + '</nav>' +
+        '<main class="main"><div class="content fade" id="content">' + renderSection(section(state.page)) + '</div></main>' +
+      '</div>';
+    afterRender();
+  }
+
+  function renderSection(s) {
+    var idx = G.sections.indexOf(s);
+    var prev = G.sections[idx - 1], next = G.sections[idx + 1];
+    var head = s.id === 'overview' ? '' :
+      '<h1 class="sec-title">' + s.icon + ' ' + s.title + '</h1>' + (s.summary ? '<p class="sec-summary">' + s.summary + '</p>' : '');
+    var body = s.blocks.map(block).join('');
+    var pager = '<div class="pager">' +
+      (prev ? '<button data-goto="' + prev.id + '"><small>← ' + u('prev') + '</small><b>' + prev.title + '</b></button>' : '') +
+      (next ? '<button class="nx" data-goto="' + next.id + '"><small>' + u('next') + ' →</small><b>' + next.title + '</b></button>' : '') +
+      '</div>';
+    var foot = '<div class="footer">© ClearMechanic · ' + u('version') + ' ' + esc(G.meta.version) + ' · ' + u('updated') + ' ' + esc(G.meta.updated) + ' · <a href="mailto:' + esc(G.meta.email) + '">' + esc(G.meta.email) + '</a></div>';
+    return head + body + pager + foot;
+  }
+
+  /* ---------------- bloques ---------------- */
+  var seqId = 0, tabsId = 0;
+  function block(b) {
+    switch (b.type) {
+      case 'hero':
+        return '<div class="hero"><h1>' + b.title + '</h1><p>' + b.subtitle + '</p><div class="pills">' +
+          '<span class="pill">' + u('version') + ' ' + esc(G.meta.version) + '</span>' +
+          '<span class="pill">' + u('updated') + ' ' + esc(G.meta.updated) + '</span>' +
+          '<span class="pill">OpenAPI 3.0</span><span class="pill">ES · EN · PT</span></div></div>';
+      case 'p': return '<p class="p">' + b.text + '</p>';
+      case 'h': return '<h2 class="h">' + b.text + '</h2>';
+      case 'h3': return '<h3 class="h3">' + b.text + '</h3>';
+      case 'list': return '<ul class="list">' + b.items.map(function (i) { return '<li>' + i + '</li>'; }).join('') + '</ul>';
+      case 'callout':
+        var ic = { info: 'ℹ️', warn: '⚠️', tip: '✅' }[b.variant] || 'ℹ️';
+        return '<div class="callout ' + b.variant + '"><div class="ct">' + ic + ' ' + b.title + '</div><ul>' +
+          b.items.map(function (i) { return '<li>' + i + '</li>'; }).join('') + '</ul></div>';
+      case 'code': return codeBlock(b);
+      case 'endpoints': return endpointsTable(b.ids.map(function (id) { return EP[id]; }).filter(Boolean), false);
+      case 'fields': return fieldsTable(b.rows);
+      case 'table':
+        return '<div class="tbl-wrap"><table class="tbl"><thead><tr>' + b.headers.map(function (h) { return '<th>' + h + '</th>'; }).join('') +
+          '</tr></thead><tbody>' + b.rows.map(function (r) { return '<tr>' + r.map(function (c, i) { return '<td' + (i === 0 ? ' class="nowrap"' : '') + '>' + c + '</td>'; }).join('') + '</tr>'; }).join('') +
+          '</tbody></table></div>';
+      case 'sequence': return sequenceBlock(b);
+      case 'arch': return archBlock(b);
+      case 'model':
+        return '<div class="model">' + b.items.map(function (it, i) {
+          return (i ? '<div class="arrow">→</div>' : '') +
+            '<button class="ent" data-goto="' + it.goto + '"><span class="ei">' + it.icon + '</span><b>' + it.title + '</b><code>' + esc(it.key) + '</code><p>' + it.text + '</p></button>';
+        }).join('') + '</div>';
+      case 'steps':
+        return '<ol class="steps">' + b.items.map(function (s) { return '<li><b>' + s.title + '</b><span>' + s.text + '</span></li>'; }).join('') + '</ol>';
+      case 'cards':
+        return '<div class="cards">' + b.items.map(function (c) {
+          var ext = /^https?:/.test(c.href);
+          return '<a class="card" href="' + esc(c.href) + '"' + (ext ? ' target="_blank" rel="noopener"' : '') + '>' +
+            (ext ? '<span class="ext">↗</span>' : '') + '<div class="ci">' + c.icon + '</div><div class="cti">' + c.title + '</div><div class="ctx">' + c.text + '</div></a>';
+        }).join('') + '</div>';
+      case 'navcards':
+        return '<div class="cards">' + b.items.map(function (id) {
+          var s = section(id); if (!s) return '';
+          return '<button class="card" data-goto="' + id + '"><div class="ci">' + s.icon + '</div><div class="cti">' + s.title + '</div><div class="ctx">' + (s.summary || '') + '</div></button>';
+        }).join('') + '</div>';
+      case 'tabs':
+        var tid = 'tabs' + (++tabsId);
+        return '<div class="tabs" id="' + tid + '"><div class="tab-h">' + b.tabs.map(function (t, i) {
+          return '<button data-tab="' + tid + ':' + i + '" class="' + (i ? '' : 'on') + '">' + t.title + '</button>';
+        }).join('') + '</div>' + b.tabs.map(function (t, i) {
+          return '<div class="tab-b" data-pane="' + tid + ':' + i + '"' + (i ? ' hidden' : '') + '>' + t.blocks.map(block).join('') + '</div>';
+        }).join('') + '</div>';
+      case 'explorer': return '<div id="explorer"></div>';
+      case 'checklist': return checklistBlock(b);
+      case 'retry':
+        var total = 0;
+        return '<ol class="retry"><li><span class="dot">0</span><b>' + b.first + '</b><small>t = 0 s</small></li>' + b.delays.map(function (d, i) {
+          total += d;
+          return '<li><span class="dot">' + (i + 1) + '</span><b>' + b.retry + ' ' + (i + 1) + '</b><small>' + b.after + ' ' + d + ' s · t ≈ ' + (Math.round(total * 10) / 10) + ' s</small></li>';
+        }).join('') + '</ol>';
+      case 'changelog':
+        return '<ul class="changelog">' + G.meta.changelog.map(function (c) {
+          return '<li><div><b>v' + esc(c.v) + '</b><small>' + esc(c.date) + '</small></div><div>' + c.t + '</div></li>';
+        }).join('') + '</ul>';
+      default: return '';
+    }
+  }
+
+  function highlight(code) {
+    var s = esc(code);
+    s = s.replace(/^(GET|POST|PUT|PATCH|DELETE)\b/gm, '<span class="tok-h">$1</span>');
+    s = s.replace(/(&quot;(?:[^&]|&(?!quot;))*?&quot;)(\s*:)?|\b(true|false|null)\b|(-?\b\d+(?:\.\d+)?\b)/g, function (m, str, colon, kw, num) {
+      if (str) return '<span class="' + (colon ? 'tok-k' : 'tok-s') + '">' + str + '</span>' + (colon || '');
+      if (kw) return '<span class="tok-b">' + kw + '</span>';
+      return '<span class="tok-n">' + num + '</span>';
+    });
+    return s;
+  }
+  function codeBlock(b) {
+    return '<div class="code"><div class="code-h"><span>' + (b.title || (/^\s*[{\[]/.test(b.code) ? 'JSON' : 'HTTP')) + '</span>' +
+      '<button class="copy" data-copy>' + u('copy') + '</button></div><pre>' + highlight(b.code) + '</pre></div>';
+  }
+
+  function endpointsTable(list, grouped) {
+    if (!list.length) return '<p class="muted">' + u('noResults') + '</p>';
+    var rows = '', lastGroup = null;
+    list.forEach(function (e) {
+      if (grouped && e.group !== lastGroup) {
+        lastGroup = e.group;
+        rows += '<tr class="grp-h"><td colspan="5">' + (G.ui.groups[e.group] || e.group) + '</td></tr>';
+      }
+      rows += '<tr><td><span class="mth ' + e.m + '">' + e.m + '</span></td>' +
+        '<td class="path">' + esc(e.p).replace(/\//g, '/<wbr>') + (grouped ? '<span class="tag ' + e.integ + '">' + G.ui.integ[e.integ] + '</span>' : '') + '</td>' +
+        '<td class="c-dir"><span class="dir ' + e.dir + '" title="' + esc(strip(u(e.dir + 'Long'))) + '">' + u(e.dir) + '</span></td>' +
+        '<td class="c-desc">' + e.d + '</td>' +
+        '<td class="c-doc"><a class="doclink" href="' + esc(docUrl(e)) + '" target="_blank" rel="noopener">' + u('docs') + ' ↗</a></td></tr>';
+    });
+    return '<div class="tbl-wrap"><table class="tbl ep"><thead><tr><th>' + u('method') + '</th><th>' + u('endpoint') + '</th><th>' + u('direction') +
+      '</th><th>' + u('description') + '</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+  }
+
+  function fieldsTable(rows) {
+    var lbl = { y: u('yes'), n: u('no'), c: u('conditional') };
+    return '<div class="tbl-wrap"><table class="tbl fl"><thead><tr><th>' + u('field') + '</th><th>' + u('type') + '</th><th>' + u('required') +
+      '</th><th>' + u('description') + '</th></tr></thead><tbody>' + rows.map(function (r) {
+        return '<tr><td class="fname">' + esc(r[0]) + '</td><td class="ftype">' + esc(r[1]) + '</td><td><span class="req ' + r[2] + '">' + lbl[r[2]] + '</span></td><td>' + r[3] + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
+  function archBlock(b) {
+    var L = G.meta.links;
+    return '<div class="arch">' +
+      '<div class="node dms"><b>🏢 ' + b.dms + '</b><span>' + b.dmsSub + '</span></div>' +
+      '<div class="wires">' +
+        '<a class="wire r" href="' + esc(L.productApi) + '" target="_blank" rel="noopener"><b>' + b.toCm + '</b><div class="line"></div><small>' + b.toCmSub + '</small></a>' +
+        '<a class="wire l" href="' + esc(L.dmsApi) + '" target="_blank" rel="noopener"><b>' + b.toDms + '</b><div class="line"></div><small>' + b.toDmsSub + '</small></a>' +
+      '</div>' +
+      '<div class="node cm"><b>🔧 ' + b.cm + '</b><span>' + b.cmSub + '</span></div>' +
+    '</div>';
+  }
+
+  /* ---------------- diagrama de secuencia ---------------- */
+  var COLORS = { dms: '#1f3864', cm: '#3f7d20', user: '#7a8499' };
+  function sequenceBlock(b) {
+    var id = 'seq' + (++seqId);
+    var P = b.participants, n = P.length, W = 760, pad = n === 2 ? 110 : 95;
+    var xs = {}; P.forEach(function (p, i) { xs[p] = pad + i * (W - 2 * pad) / (n - 1); });
+    var top = 58, rowH = 46, H = top + 16 + b.steps.length * rowH + 12;
+    var svg = '<svg class="seq-svg" id="' + id + '-svg" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" role="img">';
+    svg += '<defs>' + Object.keys(COLORS).map(function (k) {
+      return '<marker id="' + id + '-a-' + k + '" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="' + COLORS[k] + '"/></marker>';
+    }).join('') + '</defs>';
+    P.forEach(function (p) {
+      var x = xs[p], name = strip(G.ui.actors[p]);
+      svg += '<line x1="' + x + '" y1="44" x2="' + x + '" y2="' + (H - 6) + '" stroke="#c9d2df" stroke-dasharray="4 4"/>';
+      svg += '<rect x="' + (x - 82) + '" y="8" width="164" height="34" rx="8" fill="' + COLORS[p] + '"/>';
+      svg += '<text x="' + x + '" y="30" text-anchor="middle" fill="#fff" font-size="13" font-weight="700" font-family="Segoe UI, Arial, sans-serif">' + esc(name) + '</text>';
+    });
+    b.steps.forEach(function (s, i) {
+      var y = top + 16 + i * rowH + 22;
+      var x1 = xs[s.from], x2 = xs[s.to], dirR = x2 > x1;
+      var col = COLORS[s.from] || '#555';
+      var label = s.labelT ? strip(s.labelT) : s.label;
+      var maxChars = Math.floor((Math.abs(x2 - x1) - 44) / 7.4);
+      if (label.length > maxChars) label = label.slice(0, Math.max(4, maxChars - 1)) + '…';
+      var mid = (x1 + x2) / 2;
+      var lx1 = x1 + (dirR ? 16 : -16), lx2 = x2 + (dirR ? -3 : 3);
+      svg += '<g class="msg" data-seq="' + id + '" data-step="' + i + '">' +
+        '<rect class="hit" x="0" y="' + (y - 28) + '" width="' + W + '" height="' + rowH + '" fill="transparent"/>' +
+        '<line x1="' + lx1 + '" y1="' + y + '" x2="' + lx2 + '" y2="' + y + '" stroke="' + col + '" stroke-width="2"' + (s.res ? ' stroke-dasharray="6 4"' : '') + ' marker-end="url(#' + id + '-a-' + s.from + ')"/>' +
+        '<circle cx="' + x1 + '" cy="' + y + '" r="11" fill="' + col + '"/>' +
+        '<text x="' + x1 + '" y="' + (y + 4) + '" text-anchor="middle" fill="#fff" font-size="11" font-weight="700" font-family="Segoe UI, Arial, sans-serif">' + (i + 1) + '</text>' +
+        '<text x="' + mid + '" y="' + (y - 8) + '" text-anchor="middle" fill="#1d2433" font-size="12.5" font-weight="600" font-family="' + (s.labelT ? 'Segoe UI, Arial, sans-serif' : 'Consolas, ui-monospace, monospace') + '">' + esc(label) + '</text>' +
+        '</g>';
+    });
+    svg += '</svg>';
+
+    var list = '<ol class="seq-steps">' + b.steps.map(function (s, i) {
+      var who = strip(G.ui.actors[s.from]) + ' → ' + strip(G.ui.actors[s.to]);
+      return '<li data-seq="' + id + '" data-step="' + i + '"><span class="n">' + (i + 1) + '</span><div>' +
+        '<div class="who">' + esc(who) + '</div>' +
+        '<div class="lbl' + (s.labelT ? ' t' : '') + '">' + (s.labelT || esc(s.label)) + '</div>' +
+        (s.note ? '<div class="note">' + s.note + '</div>' : '') + '</div></li>';
+    }).join('') + '</ol>';
+
+    return '<div class="seq" id="' + id + '" data-count="' + b.steps.length + '">' +
+      '<div class="seq-toolbar"><span class="hint">' + u('stepHint') + '</span>' +
+      '<button data-seqact="prev" data-seq="' + id + '">◀</button>' +
+      '<button data-seqact="play" data-seq="' + id + '">▶ ' + u('play') + '</button>' +
+      '<button data-seqact="next" data-seq="' + id + '">▶</button></div>' +
+      svg + list + '</div>';
+  }
+
+  var seqState = {};
+  function seqSet(id, i) {
+    var box = document.getElementById(id); if (!box) return;
+    var count = +box.getAttribute('data-count');
+    if (i != null && (i < 0 || i >= count)) i = null;
+    seqState[id] = seqState[id] || {};
+    seqState[id].i = i;
+    var svg = document.getElementById(id + '-svg');
+    svg.classList.toggle('dim', i != null);
+    box.querySelectorAll('[data-step]').forEach(function (el) { el.classList.toggle('on', i != null && +el.getAttribute('data-step') === i); });
+  }
+  function seqPlay(id, btn) {
+    var st = seqState[id] = seqState[id] || {};
+    if (st.timer) { clearInterval(st.timer); st.timer = null; btn.innerHTML = '▶ ' + u('play'); return; }
+    var count = +document.getElementById(id).getAttribute('data-count');
+    var i = st.i == null || st.i >= count - 1 ? 0 : st.i + 1;
+    seqSet(id, i);
+    btn.innerHTML = '⏸ ' + u('pause');
+    st.timer = setInterval(function () {
+      i++;
+      if (i >= count) { clearInterval(st.timer); st.timer = null; btn.innerHTML = '▶ ' + u('play'); return; }
+      seqSet(id, i);
+    }, 1500);
+  }
+
+  /* ---------------- explorador ---------------- */
+  function renderExplorer() {
+    var host = document.getElementById('explorer'); if (!host) return;
+    var ex = state.explorer;
+    var dirs = ['all', 'dms2cm', 'cm2dms'];
+    host.innerHTML =
+      '<div class="explorer-bar">' +
+        '<input type="search" id="ex-q" placeholder="' + esc(strip(u('search'))) + '" value="' + esc(ex.q) + '">' +
+        '<div class="seg">' + dirs.map(function (d) {
+          return '<button data-exdir="' + d + '" class="' + (ex.dir === d ? 'on' : '') + '">' + (d === 'all' ? u('all') : u(d)) + '</button>';
+        }).join('') + '</div>' +
+        '<div class="seg">' + ['all', 'std', 'crm', 'planner', 'extra'].map(function (k) {
+          return '<button data-exinteg="' + k + '" class="' + (ex.integ === k ? 'on' : '') + '">' + (k === 'all' ? u('all') : G.ui.integ[k]) + '</button>';
+        }).join('') + '</div>' +
+        '<span class="count" id="ex-count"></span>' +
+      '</div><div id="ex-table"></div>';
+    var q = document.getElementById('ex-q');
+    q.addEventListener('input', function () { ex.q = q.value; renderExplorerTable(); });
+    renderExplorerTable();
+  }
+  function renderExplorerTable() {
+    var ex = state.explorer, q = ex.q.trim().toLowerCase();
+    var order = Object.keys(G.ui.groups);
+    var list = G.endpoints.filter(function (e) {
+      if (ex.dir !== 'all' && e.dir !== ex.dir) return false;
+      if (ex.integ !== 'all' && e.integ !== ex.integ) return false;
+      if (!q) return true;
+      return (e.m + ' ' + e.p + ' ' + strip(e.d) + ' ' + strip(G.ui.groups[e.group] || '')).toLowerCase().indexOf(q) >= 0;
+    }).sort(function (a, b) { return order.indexOf(a.group) - order.indexOf(b.group); });
+    document.getElementById('ex-table').innerHTML = endpointsTable(list, true);
+    document.getElementById('ex-count').textContent = list.length + ' ' + strip(u('results'));
+  }
+
+  /* ---------------- checklist ---------------- */
+  function loadChecks() { try { return JSON.parse(store(LS_CHECK) || '{}') || {}; } catch (e) { return {}; } }
+  function checklistBlock(b) {
+    var done = loadChecks();
+    return '<div class="progress"><span>' + u('progress') + '</span><div class="bar"><i id="cl-bar"></i></div><span class="pct" id="cl-pct"></span>' +
+      '<button data-act="cl-reset">' + u('resetChecklist') + '</button></div>' +
+      b.groups.map(function (g, gi) {
+        return '<div class="cl-group"><h4>' + g.title + '<small data-clcount="' + gi + '"></small></h4>' + g.items.map(function (it, ii) {
+          var k = gi + '.' + ii;
+          return '<label class="cl-item' + (done[k] ? ' done' : '') + '"><input type="checkbox" data-cl="' + k + '"' + (done[k] ? ' checked' : '') + '><span>' + it + '</span></label>';
+        }).join('') + '</div>';
+      }).join('') + '<p class="muted">' + u('checklistNote') + '</p>';
+  }
+  function updateChecklist() {
+    var boxes = root.querySelectorAll('[data-cl]'); if (!boxes.length) return;
+    var total = boxes.length, on = 0, per = {};
+    boxes.forEach(function (bx) {
+      var g = bx.getAttribute('data-cl').split('.')[0];
+      per[g] = per[g] || [0, 0]; per[g][1]++;
+      if (bx.checked) { on++; per[g][0]++; }
+      bx.parentNode.classList.toggle('done', bx.checked);
+    });
+    var pct = Math.round(on * 100 / total);
+    document.getElementById('cl-bar').style.width = pct + '%';
+    document.getElementById('cl-pct').textContent = pct + '%';
+    Object.keys(per).forEach(function (g) {
+      var el = root.querySelector('[data-clcount="' + g + '"]'); if (el) el.textContent = per[g][0] + '/' + per[g][1];
+    });
+  }
+
+  /* ---------------- eventos ---------------- */
+  function afterRender() {
+    renderExplorer();
+    updateChecklist();
+  }
+
+  function go(id) {
+    if (!section(id)) return;
+    Object.keys(seqState).forEach(function (k) { if (seqState[k].timer) clearInterval(seqState[k].timer); });
+    seqState = {};
+    var changed = state.page !== id;
+    state.page = id;
+    render();
+    syncHash(changed);
+    window.scrollTo(0, 0);
+    var sb = document.getElementById('sidebar'); if (sb) sb.classList.remove('open');
+  }
+
+  function setLang(lang) {
+    if (lang === G.lang) return;
+    store(LS_LANG, lang);
+    if (cache[lang]) { G = cache[lang]; render(); syncHash(false); return; }
+    if (window.google && google.script && google.script.run) {
+      var content = document.getElementById('content');
+      if (content) content.style.opacity = '.4';
+      google.script.run
+        .withSuccessHandler(function (json) { G = cache[lang] = JSON.parse(json); render(); })
+        .withFailureHandler(function (err) { if (content) content.style.opacity = ''; console.error(err); })
+        .getGuide(lang);
+    }
+  }
+
+  function copyText(text, btn) {
+    var ok = function () { var t = btn.textContent; btn.textContent = strip(u('copied')); setTimeout(function () { btn.textContent = t; }, 1400); };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(ok, fallback); return; }
+    } catch (e) { /* noop */ }
+    fallback();
+    function fallback() {
+      var ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); ok(); } catch (e) { /* noop */ }
+      document.body.removeChild(ta);
+    }
+  }
+
+  root.addEventListener('click', function (ev) {
+    var t = ev.target.closest('[data-goto],[data-lang],[data-act],[data-tab],[data-seqact],[data-step],[data-copy],[data-exdir],[data-exinteg]');
+    if (!t) return;
+    if (t.hasAttribute('data-goto')) { ev.preventDefault(); go(t.getAttribute('data-goto')); return; }
+    if (t.hasAttribute('data-lang')) { setLang(t.getAttribute('data-lang')); return; }
+    if (t.hasAttribute('data-copy')) { copyText(t.closest('.code').querySelector('pre').textContent, t); return; }
+    if (t.hasAttribute('data-exdir')) { state.explorer.dir = t.getAttribute('data-exdir'); renderExplorer(); return; }
+    if (t.hasAttribute('data-exinteg')) { state.explorer.integ = t.getAttribute('data-exinteg'); renderExplorer(); return; }
+    if (t.hasAttribute('data-tab')) {
+      var parts = t.getAttribute('data-tab').split(':'), box = document.getElementById(parts[0]);
+      box.querySelectorAll('[data-tab]').forEach(function (b) { b.classList.toggle('on', b === t); });
+      box.querySelectorAll('[data-pane]').forEach(function (p) { p.hidden = p.getAttribute('data-pane') !== t.getAttribute('data-tab'); });
+      return;
+    }
+    if (t.hasAttribute('data-seqact')) {
+      var sid = t.getAttribute('data-seq'), act = t.getAttribute('data-seqact'), cur = (seqState[sid] || {}).i;
+      if (act === 'play') return seqPlay(sid, t);
+      var count = +document.getElementById(sid).getAttribute('data-count');
+      if (act === 'next') seqSet(sid, cur == null ? 0 : Math.min(cur + 1, count - 1));
+      if (act === 'prev') seqSet(sid, cur == null ? count - 1 : Math.max(cur - 1, 0));
+      return;
+    }
+    if (t.hasAttribute('data-step')) {
+      var s = t.getAttribute('data-seq'), i = +t.getAttribute('data-step');
+      seqSet(s, (seqState[s] || {}).i === i ? null : i);
+      return;
+    }
+    if (t.hasAttribute('data-act')) {
+      var a = t.getAttribute('data-act');
+      if (a === 'menu') document.getElementById('sidebar').classList.toggle('open');
+      if (a === 'cl-reset') { store(LS_CHECK, '{}'); root.querySelectorAll('[data-cl]').forEach(function (b) { b.checked = false; }); updateChecklist(); }
+    }
+  });
+
+  root.addEventListener('change', function (ev) {
+    var t = ev.target;
+    if (t.hasAttribute && t.hasAttribute('data-cl')) {
+      var d = loadChecks(); d[t.getAttribute('data-cl')] = t.checked; store(LS_CHECK, JSON.stringify(d));
+      updateChecklist();
+    }
+  });
+
+  /* ---------------- arranque ---------------- */
+  if (STATIC) {
+    window.addEventListener('popstate', function () {
+      var h = parseHash();
+      if (h.lang && h.lang !== G.lang && cache[h.lang]) { G = cache[h.lang]; store(LS_LANG, h.lang); }
+      state.page = section(h.page) ? h.page : 'overview';
+      render();
+      window.scrollTo(0, 0);
+    });
+  }
+  render();
+  syncHash(false);
+  if (!BOOT.explicitLang) {
+    var saved = store(LS_LANG);
+    var nav = (navigator.language || '').slice(0, 2).toLowerCase();
+    var want = G.langs.indexOf(saved) >= 0 ? saved : (G.langs.indexOf(nav) >= 0 ? nav : G.lang);
+    if (want !== G.lang) setLang(want);
+  }
+})();
+</script>

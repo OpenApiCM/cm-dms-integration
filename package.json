@@ -1,0 +1,13 @@
+{
+  "name": "clearmechanic-dms-integration-guide",
+  "version": "2.0.0",
+  "private": true,
+  "description": "ClearMechanic DMS integration guide (ES/EN/PT) — static site + Google Apps Script",
+  "scripts": {
+    "build": "node tools/build.js",
+    "serve": "node tools/build.js && npx --yes serve@14.2.4 dist -l 8765"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
