@@ -45,6 +45,19 @@
     var base = e.dir === 'cm2dms' ? L.dmsApi : L.productApi;
     return e.tag && e.op ? base + '#/' + encodeURIComponent(e.tag) + '/' + e.op : base;
   }
+  // Encuentra el endpoint del catálogo a partir de un texto tipo "POST /cm/v2/appointments?x=1"
+  function epFromText(text) {
+    var m = /^\s*(GET|POST|PUT|PATCH|DELETE)\s+(\/[^\s?]*)/.exec(text || '');
+    if (!m) return null;
+    for (var i = 0; i < G.endpoints.length; i++) {
+      var e = G.endpoints[i];
+      if (e.m === m[1] && e.p === m[2]) return e;
+    }
+    return null;
+  }
+  function docLink(e, cls) {
+    return e ? '<a class="' + (cls || 'doclink') + '" href="' + esc(docUrl(e)) + '" target="_blank" rel="noopener" title="' + esc(e.m + ' ' + e.p) + '">' + u('docs') + ' ↗</a>' : '';
+  }
   function section(id) { for (var i = 0; i < G.sections.length; i++) if (G.sections[i].id === id) return G.sections[i]; return null; }
 
   /* ---------------- shell ---------------- */
@@ -140,6 +153,8 @@
         }).join('') + '</div>' + b.tabs.map(function (t, i) {
           return '<div class="tab-b" data-pane="' + tid + ':' + i + '"' + (i ? ' hidden' : '') + '>' + t.blocks.map(block).join('') + '</div>';
         }).join('') + '</div>';
+      case 'details':
+        return '<details class="details"><summary>' + b.title + '</summary><div class="details-b">' + b.blocks.map(block).join('') + '</div></details>';
       case 'explorer': return '<div id="explorer"></div>';
       case 'checklist': return checklistBlock(b);
       case 'retry':
@@ -167,8 +182,9 @@
     return s;
   }
   function codeBlock(b) {
+    var ep = epFromText(b.code);
     return '<div class="code"><div class="code-h"><span>' + (b.title || (/^\s*[{\[]/.test(b.code) ? 'JSON' : 'HTTP')) + '</span>' +
-      '<button class="copy" data-copy>' + u('copy') + '</button></div><pre>' + highlight(b.code) + '</pre></div>';
+      '<span class="code-act">' + docLink(ep, 'doclink code-doc') + '<button class="copy" data-copy>' + u('copy') + '</button></span></div><pre>' + highlight(b.code) + '</pre></div>';
   }
 
   function endpointsTable(list, grouped) {
@@ -249,7 +265,7 @@
       var who = strip(G.ui.actors[s.from]) + ' → ' + strip(G.ui.actors[s.to]);
       return '<li data-seq="' + id + '" data-step="' + i + '"><span class="n">' + (i + 1) + '</span><div>' +
         '<div class="who">' + esc(who) + '</div>' +
-        '<div class="lbl' + (s.labelT ? ' t' : '') + '">' + (s.labelT || esc(s.label)) + '</div>' +
+        '<div class="lbl' + (s.labelT ? ' t' : '') + '">' + (s.labelT || esc(s.label)) + (s.res ? '' : ' ' + docLink(epFromText(s.label), 'doclink step-doc')) + '</div>' +
         (s.note ? '<div class="note">' + s.note + '</div>' : '') + '</div></li>';
     }).join('') + '</ol>';
 
@@ -396,6 +412,7 @@
   }
 
   root.addEventListener('click', function (ev) {
+    if (ev.target.closest('a[target="_blank"]')) return; // enlaces externos (Docs): no activar el paso
     var t = ev.target.closest('[data-goto],[data-lang],[data-act],[data-tab],[data-seqact],[data-step],[data-copy],[data-exdir],[data-exinteg]');
     if (!t) return;
     if (t.hasAttribute('data-goto')) { ev.preventDefault(); go(t.getAttribute('data-goto')); return; }
