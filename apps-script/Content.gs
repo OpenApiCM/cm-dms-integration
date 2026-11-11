@@ -325,7 +325,7 @@ function getUi_() {
     checklistNote: T('Tu progreso se guarda solo en este navegador.',
                      'Your progress is saved in this browser only.',
                      'Seu progresso fica salvo somente neste navegador.'),
-    dms2cm: T('DMS → CM', 'DMS → CM', 'DMS → CM'),
+    dms2cm: T('CM ← DMS', 'CM ← DMS', 'CM ← DMS'),
     cm2dms: T('CM → DMS', 'CM → DMS', 'CM → DMS'),
     dms2cmLong: T('El DMS llama a ClearMechanic', 'The DMS calls ClearMechanic', 'O DMS chama o ClearMechanic'),
     cm2dmsLong: T('ClearMechanic llama al DMS (webhook)', 'ClearMechanic calls the DMS (webhook)', 'O ClearMechanic chama o DMS (webhook)'),
@@ -554,7 +554,7 @@ function getGuideSource_() {
           { type: 'table',
             headers: [T('Dirección', 'Direction', 'Direção'), T('Parámetro', 'Parameter', 'Parâmetro'), T('Descripción', 'Description', 'Descrição')],
             rows: [
-              [T('DMS → CM', 'DMS → CM', 'DMS → CM'), T('`workshopId` (query, GUID)', '`workshopId` (query, GUID)', '`workshopId` (query, GUID)'),
+              [T('CM ← DMS', 'CM ← DMS', 'CM ← DMS'), T('`workshopId` (query, GUID)', '`workshopId` (query, GUID)', '`workshopId` (query, GUID)'),
                T('Identificador de la agencia en ClearMechanic, entregado por ClearMechanic. Requerido en los endpoints de la CM Product API.', 'Dealer identifier in ClearMechanic, provided by ClearMechanic. Required on CM Product API endpoints.', 'Identificador da concessionária no ClearMechanic, fornecido pelo ClearMechanic. Obrigatório nos endpoints da CM Product API.')],
               [T('CM → DMS', 'CM → DMS', 'CM → DMS'), T('`organizationId` (header)', '`organizationId` (header)', '`organizationId` (header)'),
                T('Identificador de la agencia **en el DMS**. ClearMechanic lo envía en cada webhook: la URL es la misma para todas las agencias y solo cambia el `organizationId`.', 'Dealer identifier **in the DMS**. ClearMechanic sends it on every webhook: the URL is the same for every dealer and only the `organizationId` changes.', 'Identificador da concessionária **no DMS**. O ClearMechanic o envia em cada webhook: a URL é a mesma para todas as concessionárias e só muda o `organizationId`.')]
