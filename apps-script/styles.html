@@ -195,6 +195,10 @@
   .retry small { color: var(--ink-3); font-size: 12px; }
   .doclink { white-space: nowrap; font-size: 12px; font-weight: 700; color: var(--cm3); }
   .doclink:hover { color: var(--cm1); }
+  a.eplink { text-decoration: none; white-space: nowrap; }
+  a.eplink code { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+  a.eplink::after { content: "↗"; font-size: 11px; font-weight: 700; color: var(--cm3); margin-left: 2px; }
+  a.eplink:hover code { background: var(--cm1); color: #fff; }
   .step-doc { margin-left: 8px; font-family: var(--font); vertical-align: 1px; }
   .code-act { display: inline-flex; align-items: center; gap: 12px; }
   .code-doc { color: var(--cm4); }

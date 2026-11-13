@@ -636,7 +636,12 @@ function getGuideSource_() {
             ['appointmentReasons[]', 'array', 'c', T('Motivos estándar, en **texto**. Usar cuando el dashboard **NO** tiene `customReasons` habilitado.', 'Standard reasons, as **text**. Use when the dashboard does **NOT** have `customReasons` enabled.', 'Motivos padrão, em **texto**. Usar quando o dashboard **NÃO** tem `customReasons` habilitado.')],
             ['customReasons[]', 'array', 'c', T('Motivos personalizados, por **ID**. Usar cuando el dashboard **SÍ** tiene `customReasons` habilitado.', 'Custom reasons, by **ID**. Use when the dashboard **HAS** `customReasons` enabled.', 'Motivos personalizados, por **ID**. Usar quando o dashboard **TEM** `customReasons` habilitado.')]
           ] },
-          { type: 'details', title: T('Ver todos los campos de POST /cm/v2/appointments', 'See all POST /cm/v2/appointments fields', 'Ver todos os campos de POST /cm/v2/appointments'), blocks: [
+          { type: 'callout', variant: 'info',
+            title: T('Disponibilidad de usuarios', 'User availability', 'Disponibilidade de usuários'),
+            items: [T('La disponibilidad de los usuarios (asesores, técnicos) para agendar se puede consultar en `GET /cm/scheduleAvailability` antes de crear la cita.',
+              'User availability (advisors, technicians) for booking can be checked with `GET /cm/scheduleAvailability` before creating the appointment.',
+              'A disponibilidade dos usuários (consultores, técnicos) para agendar pode ser consultada em `GET /cm/scheduleAvailability` antes de criar o agendamento.')] },
+          { type: 'details', ep: 'cmApptCreate', title: T('Ver todos los campos de POST /cm/v2/appointments', 'See all POST /cm/v2/appointments fields', 'Ver todos os campos de POST /cm/v2/appointments'), blocks: [
             { type: 'fields', rows: [
               ['appointmentNumber', 'string', 'n', T('Número de cita manual o externo (p. ej. el del DMS).', 'Manual or external appointment number (e.g. the DMS one).', 'Número do agendamento manual ou externo (ex.: o do DMS).')],
               ['customer', 'object', 'y', T('Datos del cliente.', 'Customer data.', 'Dados do cliente.')],

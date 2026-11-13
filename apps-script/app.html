@@ -154,7 +154,7 @@
           return '<div class="tab-b" data-pane="' + tid + ':' + i + '"' + (i ? ' hidden' : '') + '>' + t.blocks.map(block).join('') + '</div>';
         }).join('') + '</div>';
       case 'details':
-        return '<details class="details"><summary>' + b.title + '</summary><div class="details-b">' + b.blocks.map(block).join('') + '</div></details>';
+        return '<details class="details"><summary>' + b.title + (b.ep ? ' ' + docLink(EP[b.ep], 'doclink step-doc') : '') + '</summary><div class="details-b">' + b.blocks.map(block).join('') + '</div></details>';
       case 'explorer': return '<div id="explorer"></div>';
       case 'checklist': return checklistBlock(b);
       case 'retry':
@@ -366,7 +366,22 @@
   }
 
   /* ---------------- eventos ---------------- */
+  // `GET /cm/...` dentro de notas y tablas de campos -> enlace a su doc en SwaggerHub
+  function linkEndpointCodes() {
+    var host = document.getElementById('content');
+    if (!host) return;
+    host.querySelectorAll('.callout code, .tbl.fl code').forEach(function (c) {
+      if (c.closest('a')) return;
+      var e = epFromText(c.textContent);
+      if (!e) return;
+      var a = document.createElement('a');
+      a.className = 'eplink'; a.href = docUrl(e); a.target = '_blank'; a.rel = 'noopener';
+      a.title = u('docs') + ' ↗';
+      c.parentNode.insertBefore(a, c); a.appendChild(c);
+    });
+  }
   function afterRender() {
+    linkEndpointCodes();
     renderExplorer();
     updateChecklist();
   }
